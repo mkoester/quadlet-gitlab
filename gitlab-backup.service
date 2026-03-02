@@ -1,0 +1,15 @@
+[Unit]
+Description=GitLab backup (application data + config)
+After=gitlab.service
+
+[Service]
+Type=oneshot
+# Run GitLab's built-in backup tool inside the running container.
+# STRATEGY=copy prevents corruption if files change during archiving.
+# The backup tar is written to /var/opt/gitlab/backups/ inside the container
+# (= %h/data/backups/ on the host).
+ExecStart=/usr/bin/podman exec systemd-gitlab gitlab-backup create STRATEGY=copy
+# Sync the backup archive(s) to the staging area
+ExecStart=/usr/bin/rsync -a --delete %h/data/backups/ /var/backups/gitlab/backups/
+# Backup config and secrets separately — gitlab-backup does not include /etc/gitlab/
+ExecStart=/usr/bin/rsync -a --delete %h/config/ /var/backups/gitlab/config/

@@ -1,0 +1,42 @@
+[Unit]
+Description=GitLab Community Edition
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=docker.io/gitlab/gitlab-ce:latest
+AutoUpdate=registry
+
+# GitLab Omnibus runs as root (UID 0) inside the container.
+# With rootless Podman, container root maps to the service user on the host —
+# no UserNS/User/Group override is needed.
+
+# Environment variables
+EnvironmentFile=%h/.config/containers/systemd/gitlab.env
+EnvironmentFile=%h/.config/containers/systemd/gitlab.override.env
+
+# Volumes
+Volume=%h/config:/etc/gitlab:Z
+Volume=%h/logs:/var/log/gitlab:Z
+Volume=%h/data:/var/opt/gitlab:Z
+
+# HTTP — bind to localhost; Caddy handles TLS termination
+PublishPort=127.0.0.1:8929:80
+
+# SSH git — rootless Podman cannot bind port 22; expose on host port 2222 instead.
+# Ensure gitlab_rails['gitlab_shell_ssh_port'] = 2222 is set in GITLAB_OMNIBUS_CONFIG.
+PublishPort=2222:22
+
+# Health check
+HealthCmd=curl -f http://localhost:80/-/health || exit 1
+HealthInterval=60s
+HealthTimeout=30s
+HealthRetries=5
+
+[Service]
+Restart=always
+# GitLab takes a long time to start; first boot triggers a full reconfigure
+TimeoutStartSec=1800
+
+[Install]
+WantedBy=default.target
