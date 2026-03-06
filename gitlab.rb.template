@@ -1,0 +1,21 @@
+# GitLab instance configuration
+# Copy this file to gitlab.rb, edit as needed, then hard-link it into the config directory:
+#   cp gitlab.rb.template gitlab.rb
+#   nano gitlab.rb
+#   ln $REPO/gitlab.rb ~gitlab/config/gitlab.rb
+
+# Public URL — set this to your HTTPS domain
+external_url 'https://gitlab.example.com'
+
+# Reverse proxy (Caddy handles TLS): tell built-in Nginx to accept plain HTTP
+nginx['listen_port'] = 80
+nginx['listen_https'] = false
+
+# SSH port — must match the host port mapped to container port 22 (2222 by default)
+gitlab_rails['gitlab_shell_ssh_port'] = 2222
+
+# Timezone
+gitlab_rails['time_zone'] = 'Europe/Berlin'
+
+# Backup retention: delete backups older than this many seconds (7 days)
+gitlab_rails['backup_keep_time'] = 604800

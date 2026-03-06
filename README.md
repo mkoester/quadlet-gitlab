@@ -10,7 +10,8 @@ This project was created with the help of Claude Code and https://github.com/mko
 |---|---|
 | `gitlab.container` | Quadlet unit file |
 | `gitlab.env` | Default environment variables |
-| `gitlab.override.env.template` | Template for local overrides (external URL, Omnibus config) |
+| `gitlab.override.env.template` | Template for local environment overrides |
+| `gitlab.rb.template` | Template for GitLab Omnibus configuration (`gitlab.rb`) |
 | `gitlab-backup.service` | Systemd service: backs up GitLab data and config |
 | `gitlab-backup.timer` | Systemd timer: triggers the backup daily |
 
@@ -35,20 +36,25 @@ sudo -u gitlab git clone $REPO_URL $REPO
 sudo -u gitlab mkdir -p ~gitlab/.config/containers/systemd
 sudo -u gitlab mkdir -p ~gitlab/{config,logs,data}
 
-# 5. Create .override.env from template and set the external URL
+# 5. Create .override.env from template
 sudo -u gitlab cp $REPO/gitlab.override.env.template $REPO/gitlab.override.env
-sudo -u gitlab nano $REPO/gitlab.override.env
 
-# 6. Symlink all quadlet files from the repo
+# 6. Create gitlab.rb from template and set the external URL
+sudo -u gitlab cp $REPO/gitlab.rb.template $REPO/gitlab.rb
+sudo -u gitlab nano $REPO/gitlab.rb
+# Hard-link into the config directory (must be same filesystem — true when repo is under ~gitlab/)
+sudo -u gitlab ln $REPO/gitlab.rb ~gitlab/config/gitlab.rb
+
+# 7. Symlink all quadlet files from the repo
 sudo -u gitlab ln -s $REPO/gitlab.container ~gitlab/.config/containers/systemd/gitlab.container
 sudo -u gitlab ln -s $REPO/gitlab.env ~gitlab/.config/containers/systemd/gitlab.env
 sudo -u gitlab ln -s $REPO/gitlab.override.env ~gitlab/.config/containers/systemd/gitlab.override.env
 
-# 7. Reload and start
+# 8. Reload and start
 sudo -u gitlab XDG_RUNTIME_DIR=/run/user/$(id -u gitlab) systemctl --user daemon-reload
 sudo -u gitlab XDG_RUNTIME_DIR=/run/user/$(id -u gitlab) systemctl --user start gitlab
 
-# 8. Verify (first boot runs gitlab-ctl reconfigure — allow a few minutes)
+# 9. Verify (first boot runs gitlab-ctl reconfigure — allow a few minutes)
 sudo -u gitlab XDG_RUNTIME_DIR=/run/user/$(id -u gitlab) systemctl --user status gitlab
 ```
 
@@ -62,25 +68,18 @@ sudo -u gitlab XDG_RUNTIME_DIR=/run/user/$(id -u gitlab) systemctl --user status
 |---|---|---|
 | `TZ` | `Europe/Berlin` | Container timezone |
 
-`gitlab.override.env` (created from the template) holds instance-specific values:
+`gitlab.override.env` (created from the template) can hold additional instance-specific environment variables if needed.
 
-| Variable | Description |
-|---|---|
-| `GITLAB_OMNIBUS_CONFIG` | Inline Ruby config — sets `external_url`, reverse proxy settings, SSH port, and timezone |
+### GitLab Omnibus configuration (gitlab.rb)
 
-The minimum recommended `GITLAB_OMNIBUS_CONFIG` when running behind a reverse proxy:
+Instance configuration lives in `gitlab.rb` (created from `gitlab.rb.template`). It is hard-linked into `~gitlab/config/gitlab.rb`, which maps to `/etc/gitlab/gitlab.rb` inside the container. Edit `$REPO/gitlab.rb` and restart to apply changes:
 
-```
-GITLAB_OMNIBUS_CONFIG=external_url 'https://gitlab.example.com'; nginx['listen_port'] = 80; nginx['listen_https'] = false; gitlab_rails['gitlab_shell_ssh_port'] = 2222; gitlab_rails['time_zone'] = 'Europe/Berlin'
+```sh
+sudo -u gitlab nano $REPO/gitlab.rb
+sudo -u gitlab XDG_RUNTIME_DIR=/run/user/$(id -u gitlab) systemctl --user restart gitlab
 ```
 
 > **Note:** `nginx['listen_port']` and `nginx['listen_https']` configure GitLab's *built-in* Nginx (an Omnibus component), not the external reverse proxy (Caddy). These settings tell the internal Nginx to accept plain HTTP on port 80 and let Caddy handle TLS.
-
-For more complex configuration, edit `~gitlab/config/gitlab.rb` directly after the first boot (GitLab creates it on first run). Restart after changes:
-
-```sh
-sudo -u gitlab XDG_RUNTIME_DIR=/run/user/$(id -u gitlab) systemctl --user restart gitlab
-```
 
 ## Reverse proxy (Caddy)
 
@@ -160,7 +159,7 @@ This pulls both `backups/` (GitLab data archives) and `config/` (gitlab.rb and s
 - Port `2222` is exposed on all interfaces for SSH git access (remember to set up your firewall).
 - **First boot is slow**: GitLab runs `gitlab-ctl reconfigure` on startup, which can take 5–10 minutes. `TimeoutStartSec=1800` is set accordingly.
 - GitLab Omnibus runs as root inside the container. With rootless Podman, container root maps to the `gitlab` service user on the host — no `UserNS` override is needed.
-- GitLab retains backup archives for 7 days by default (`backup_keep_time`). Adjust in `gitlab.rb` if needed.
+- Backup archives are retained for 7 days (`backup_keep_time = 604800` in `gitlab.rb`). Adjust as needed.
 - The config directory (`~gitlab/config/`) contains `gitlab-secrets.json`. Guard backup access accordingly.
 - `AutoUpdate=registry` is enabled; activate the timer once to get automatic image updates:
   ```sh
