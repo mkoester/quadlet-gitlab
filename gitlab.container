@@ -37,6 +37,9 @@ HealthRetries=5
 Restart=always
 # GitLab takes a long time to start; first boot triggers a full reconfigure
 TimeoutStartSec=1800
+LimitSIGPENDING=62793
+LimitNPROC=131072
+LimitNOFILE=65536
 
 [Install]
 WantedBy=default.target
