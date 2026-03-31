@@ -13,6 +13,6 @@ ExecStart=/usr/bin/podman exec systemd-gitlab gitlab-backup create STRATEGY=copy
 # podman unshare is required: the backup tar is created by the container's git user,
 # which maps to a subuid on the host that the gitlab host user cannot access directly.
 # Running inside the user namespace makes those UIDs visible as effective root.
-ExecStart=/usr/bin/podman unshare /usr/bin/rsync -a --delete --chmod=Dg+x,Fg+r %h/data/backups/ /var/backups/gitlab/backups/
+ExecStart=/usr/bin/podman unshare /usr/bin/rsync -a --no-o --no-g --delete --chmod=Dg+x,Fg+r %h/data/backups/ /var/backups/gitlab/backups/
 # Backup config and secrets separately — gitlab-backup does not include /etc/gitlab/
 ExecStart=/usr/bin/rsync -a --delete --chmod=Dg+x,Fg+r %h/config/ /var/backups/gitlab/config/
