@@ -23,6 +23,10 @@ gitlab_rails['backup_keep_time'] = 604800
 # Disable Kubernetes Agent Server (not needed for single-node setups without k8s)
 gitlab_kas['enable'] = false
 
+# Disable bundled Prometheus stack (not needed when using an external monitoring stack)
+prometheus['enable'] = false
+prometheus_monitoring['enable'] = false
+
 # SMTP (optional) — uncomment and configure to enable outgoing email
 # gitlab_rails['smtp_enable'] = true
 # gitlab_rails['smtp_address'] = 'smtp.example.com'
