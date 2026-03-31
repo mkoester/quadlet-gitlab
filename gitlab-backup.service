@@ -10,6 +10,6 @@ Type=oneshot
 # (= %h/data/backups/ on the host).
 ExecStart=/usr/bin/podman exec systemd-gitlab gitlab-backup create STRATEGY=copy
 # Sync the backup archive(s) to the staging area
-ExecStart=/usr/bin/rsync -a --delete %h/data/backups/ /var/backups/gitlab/backups/
+ExecStart=/usr/bin/rsync -a --delete --chmod=Dg+x,Fg+r %h/data/backups/ /var/backups/gitlab/backups/
 # Backup config and secrets separately — gitlab-backup does not include /etc/gitlab/
-ExecStart=/usr/bin/rsync -a --delete %h/config/ /var/backups/gitlab/config/
+ExecStart=/usr/bin/rsync -a --delete --chmod=Dg+x,Fg+r %h/config/ /var/backups/gitlab/config/
