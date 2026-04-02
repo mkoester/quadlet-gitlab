@@ -27,6 +27,10 @@ gitlab_kas['enable'] = false
 prometheus['enable'] = false
 prometheus_monitoring['enable'] = false
 
+# Disable bundled Alertmanager (not needed on a single-node install; also prevents
+# gossip mesh errors from trying to find a private IP for cluster formation)
+alertmanager['enable'] = false
+
 # SMTP (optional) — uncomment and configure to enable outgoing email
 # gitlab_rails['smtp_enable'] = true
 # gitlab_rails['smtp_address'] = 'smtp.example.com'
