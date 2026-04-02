@@ -31,6 +31,10 @@ prometheus_monitoring['enable'] = false
 # gossip mesh errors from trying to find a private IP for cluster formation)
 alertmanager['enable'] = false
 
+# Disable bundled postgres-exporter (not needed with an external monitoring stack;
+# also silences "postgres_exporter.yml not found" and deprecated queries.yaml warnings)
+postgres_exporter['enable'] = false
+
 # SMTP (optional) — uncomment and configure to enable outgoing email
 # gitlab_rails['smtp_enable'] = true
 # gitlab_rails['smtp_address'] = 'smtp.example.com'
