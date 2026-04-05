@@ -40,6 +40,19 @@ consul['enable'] = false     # service discovery for Praefect / distributed coor
 praefect['enable'] = false   # Gitaly cluster proxy (multi-node Gitaly HA only)
 sentinel['enable'] = false   # Redis Sentinel (HA Redis only)
 
+# Disable Let's Encrypt / ACME (Caddy handles TLS termination; Omnibus would otherwise
+# attempt to obtain its own certificate for the https:// external_url)
+letsencrypt['enable'] = false
+
+# Disable Mattermost (bundled chat service — not needed on a personal install)
+mattermost['enable'] = false
+
+# Disable GitLab Pages (static site hosting from repos — not used)
+gitlab_pages['enable'] = false
+
+# Disable bundled container registry (not used)
+registry['enable'] = false
+
 # SMTP (optional) — uncomment and configure to enable outgoing email
 # gitlab_rails['smtp_enable'] = true
 # gitlab_rails['smtp_address'] = 'smtp.example.com'
