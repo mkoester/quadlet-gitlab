@@ -35,6 +35,11 @@ alertmanager['enable'] = false
 # also silences "postgres_exporter.yml not found" and deprecated queries.yaml warnings)
 postgres_exporter['enable'] = false
 
+# Disable HA/cluster-only components (not useful on a single-node install)
+consul['enable'] = false     # service discovery for Praefect / distributed coordination
+praefect['enable'] = false   # Gitaly cluster proxy (multi-node Gitaly HA only)
+sentinel['enable'] = false   # Redis Sentinel (HA Redis only)
+
 # SMTP (optional) — uncomment and configure to enable outgoing email
 # gitlab_rails['smtp_enable'] = true
 # gitlab_rails['smtp_address'] = 'smtp.example.com'
