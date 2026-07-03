@@ -133,7 +133,7 @@ GitLab's built-in backup tool (`gitlab-backup create`) archives repos, uploads, 
 # 1. Create backup staging directories (owned by gitlab, readable by backup-readers group)
 sudo mkdir -p /var/backups/gitlab/{backups,config}
 sudo chown -R gitlab:backup-readers /var/backups/gitlab
-sudo chmod -R 750 /var/backups/gitlab
+sudo chmod 2750 /var/backups/gitlab
 
 # 2. Symlink the backup service and timer from the repo
 sudo -u gitlab mkdir -p ~gitlab/.config/systemd/user
