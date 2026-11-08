@@ -134,6 +134,7 @@ GitLab's built-in backup tool (`gitlab-backup create`) archives repos, uploads, 
 sudo mkdir -p /var/backups/gitlab/{backups,config}
 sudo chown -R gitlab:backup-readers /var/backups/gitlab
 sudo chmod 2750 /var/backups/gitlab
+sudo setfacl -R -m g:backup-readers:rX,d:g:backup-readers:rX /var/backups/gitlab
 
 # 2. Symlink the backup service and timer from the repo
 sudo -u gitlab mkdir -p ~gitlab/.config/systemd/user
