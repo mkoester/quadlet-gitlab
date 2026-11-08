@@ -44,8 +44,8 @@ sentinel['enable'] = false   # Redis Sentinel (HA Redis only)
 # attempt to obtain its own certificate for the https:// external_url)
 letsencrypt['enable'] = false
 
-# Disable Mattermost (bundled chat service — not needed on a personal install)
-mattermost['enable'] = false
+# No mattermost[...] settings: Mattermost was removed in GitLab 19.0, and ANY mattermost[...]
+# key in gitlab.rb makes reconfigure abort ("Removed configurations found in gitlab.rb").
 
 # Disable GitLab Pages (static site hosting from repos — not used)
 gitlab_pages['enable'] = false

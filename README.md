@@ -161,11 +161,39 @@ This pulls both `backups/` (GitLab data archives) and `config/` (gitlab.rb and s
 - GitLab Omnibus runs as root inside the container. With rootless Podman, container root maps to the `gitlab` service user on the host — no `UserNS` override is needed.
 - Backup archives are retained for 7 days (`backup_keep_time = 604800` in `gitlab.rb`). Adjust as needed.
 - The config directory (`~gitlab/config/`) contains `gitlab-secrets.json`. Guard backup access accordingly.
-- `AutoUpdate=registry` is enabled; activate the timer once to get automatic image updates:
-  ```sh
-  sudo -u gitlab XDG_RUNTIME_DIR=/run/user/$(id -u gitlab) systemctl --user enable --now podman-auto-update.timer
-  ```
+- **Do not enable `podman-auto-update.timer` for GitLab.** `AutoUpdate=registry` on `:latest` would jump straight past GitLab's [required upgrade stops](https://docs.gitlab.com/update/upgrade_paths/) (X.2, X.5, X.8, X.11), and GitLab refuses or breaks on a skipped stop. Upgrade by hand, one stop at a time — see [Upgrading](#upgrading).
 - To prune old images automatically, enable the system-wide prune timer (see [image pruning setup](https://github.com/mkoester/quadlet-my-guidelines#image-pruning) for the one-time system setup). Replace `30` with the desired retention period in days:
   ```sh
   sudo -u gitlab XDG_RUNTIME_DIR=/run/user/$(id -u gitlab) systemctl --user enable --now podman-image-prune@30.timer
   ```
+
+## Upgrading
+
+GitLab must pass through every required stop (`config/upgrade_path.yml` in the GitLab repo is the source; from 17.5 they are X.2, X.5, X.8, X.11) and finish its batched background migrations before the next one. Take the newest patch of each stop. The version is pinned with a quadlet **drop-in**, so the repo's `Image=…:latest` stays untouched:
+
+```sh
+cd /     # the service user cannot enter most directories; podman fails with "cannot chdir" otherwise
+r() { sudo -u gitlab XDG_RUNTIME_DIR=/run/user/$(id -u gitlab) "$@"; }   # not `g`: oh-my-zsh aliases it to git
+x() { r podman exec systemd-gitlab "$@"; }
+TAG=<next-stop>-ce.0
+qctl gitlab start gitlab-backup.service && sudo ls -l /var/backups/gitlab/backups/ | grep "$(x head -1 /opt/gitlab/version-manifest.txt | cut -d' ' -f2)"
+r podman pull docker.io/gitlab/gitlab-ce:$TAG
+d=~gitlab/.config/containers/systemd/gitlab.container.d; r mkdir -p $d
+printf '[Container]\nImage=docker.io/gitlab/gitlab-ce:%s\n' $TAG | r tee $d/10-pin.conf
+qvalidate gitlab | grep '^ExecStart=' | grep -o 'gitlab-ce:[^ ]*'   # must print ONLY $TAG
+qreload gitlab && qctl gitlab restart
+for i in {1..60}; do r podman healthcheck run systemd-gitlab >/dev/null 2>&1 && { echo healthy; break; }; sleep 30; done
+x head -1 /opt/gitlab/version-manifest.txt && x gitlab-ctl status
+x gitlab-psql -c "SELECT job_class_name, status FROM batched_background_migrations WHERE status NOT IN (3,6);"   # (0 rows) before the next stop
+```
+
+Keep the drop-in afterwards: it is what stops `:latest` from ever skipping a stop.
+
+Gotchas measured on the 18.9.1 → 18.11.14 → 19.2.10 → 19.5.3 run (2026-11-08):
+
+- **Check `ExecStart=`, not the whole generator output.** `qvalidate` also prints an `[X-Container]` record holding *both* `Image=` keys (the original `:latest` and the drop-in's), which reads as a failed override when it is not.
+- **18.11 upgrades the bundled PostgreSQL 16 → 17 by itself on first start** (single node, no `GITLAB_SKIP_PG_UPGRADE`, no `/etc/gitlab/disable-postgresql-upgrade`). 19.0 refuses to start on 16. While it runs, the container already reports *healthy* (`/-/health` does not touch the DB), the DB socket is gone and `PG_VERSION` still reads 16 — wait for `gitlab-ctl status` to show every service `run:`, then `PG_VERSION` = 17. Afterwards run `x gitlab-psql -c "SET statement_timeout = 0; ANALYZE VERBOSE;"`. A burst of `Peer authentication failed for user "gitlab" … as "root"` in the PostgreSQL log right after that restart is part of the upgrade and stops by itself. Keep `/var/opt/gitlab/postgresql/data.16` until the instance has run fine for a while.
+- **19.0 removed Mattermost: any `mattermost[...]` key in `gitlab.rb` aborts reconfigure** (`Removed configurations found in gitlab.rb`). The template no longer carries one; delete it from an existing `gitlab.rb` before the 19.x stop.
+- **`Gitlab::BackgroundMigration.remaining` no longer exists (18.9+)**; use the SQL query above. `gitlab-rake gitlab:background_migrations:wait` exists only from 19.5.
+- **The `gitlab.rb` hard link can silently break** — any editor or `sed -i` that writes a new file replaces one name with a new inode, and `/etc/gitlab/gitlab.rb` (= `~gitlab/config/gitlab.rb`) is the copy GitLab reads. Check with `sudo stat -c '%h %i %n' $REPO/gitlab.rb ~gitlab/config/gitlab.rb` (expect 2 links, one inode); edit in place (`sed … > f.new && cat f.new > f`).
+
